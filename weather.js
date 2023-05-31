@@ -1,7 +1,7 @@
 const axios = require('axios');
 const apiKey = `${process.env.OPEN_WEATHER_MAP_API_KEY}`;
-const rapidAPIKey = `${process.env.X_RapidAPI_Key}`;
-const rapidAPIHost = `${process.env.X_RapidAPI_Host}`;
+const rapidAPIKey = `${process.env.X_RAPID_API_KEY}`;
+const rapidAPIHost = `${process.env.X_RAPID_API_HOST}`;
 const { httpErrorHandler } = require('./errorHandler.js');
 
 //function to get weather data with request parameter
