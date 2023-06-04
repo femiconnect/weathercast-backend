@@ -1,8 +1,7 @@
 const axios = require('axios');
 const apiKey = `${process.env.OPEN_WEATHER_MAP_API_KEY}`;
-const rapidAPIKey = `${process.env.X_RAPID_API_KEY}`;
-const rapidAPIHost = `${process.env.X_RAPID_API_HOST}`;
 const { httpErrorHandler } = require('./errorHandler.js');
+const { countryList } = require('./countryList.js');
 
 //function to get weather data with request parameter
 async function getWeatherPara(req, res) {
@@ -41,43 +40,75 @@ async function getWeatherPara(req, res) {
 
 //function to get weather data from a post request
 async function getWeatherData(req, res) {
-   const { location } = req.body;
+   const { location, state, country } = req.body.formData;
+
+   console.log(location, state, country);
 
    let result;
 
-   const options = {
-      method: 'GET',
-      url: 'https://address-from-to-latitude-longitude.p.rapidapi.com/geolocationapi',
-      params: {
-         address: location,
-      },
-      headers: {
-         'X-RapidAPI-Key': rapidAPIKey,
-         'X-RapidAPI-Host': rapidAPIHost,
-      },
+   const url = `http://api.openweathermap.org/geo/1.0/direct?q=${location},${state},${country}&limit=1&appid=${apiKey}`;
+
+   const validateLocation = function (apiLocation, apiState, apiCountryCode) {
+      console.log({ apiLocation, apiState, apiCountryCode });
+      let locationResult, stateResult, countryResult;
+
+      locationResult = apiLocation.includes(location);
+      stateResult = apiState.includes(state);
+
+      const searchCountry = countryList.find((cntry) => cntry.name == country);
+
+      if (searchCountry == undefined) {
+         countryResult = false;
+      } else {
+         countryResult = searchCountry.code === apiCountryCode;
+      }
+
+      console.log({ locationResult, stateResult, countryResult });
+
+      const result = locationResult && stateResult && countryResult;
+
+      return result;
    };
 
    //convert location to long/lat coordinates
    try {
-      const response = await axios.request(options);
+      const response = await axios.get(url, { timeout: 20000 });
       if (!response.data) {
-         throw new Error();
+         throw new Error('Oops!...Internal server error!');
       }
-      result = response.data.Results[0];
+
+      console.log(response.data);
+
+      if (!response.data[0]) {
+         throw new Error('Weather data not available!');
+      }
+
+      const { name, state, country } = response.data[0];
+      //console.log({ name, state, country });
+
+      if (validateLocation(name, state, country) === false) {
+         throw new Error('Location not found!');
+      }
+
+      result = response.data[0];
+      console.log(result);
+
+      //res.send(result);
    } catch (err) {
       return res.status(500).json({
-         message: 'Oops!...Something went wrong on the server.',
+         message: err.message,
       });
    }
 
-   const { longitude, latitude } = result;
+   const { lon, lat } = result;
 
    //fetch weather data with long/lat
-   const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&exclude=hourly,minutely&appid=${apiKey}`;
+   const url2 = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=hourly,minutely&appid=${apiKey}`;
 
    try {
-      const response = await axios.get(url, { timeout: 20000 });
+      const response = await axios.get(url2, { timeout: 20000 });
 
+      console.log(response.data);
       res.send(response.data);
    } catch (err) {
       httpErrorHandler(err);
