@@ -5,15 +5,11 @@ const { getWeatherPara, getWeatherData } = require('./weather.js');
 
 const app = express();
 
-//app.use(express.urlencoded());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
 app.use(cors({ origin: true }));
 
 app.get('/', (req, res) => {
-   console.log(req.body);
-
    res.send(
       'Welcome to my Weather App backend for fetching weather data from OpenWeatherMap...'
    );

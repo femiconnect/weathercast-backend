@@ -11,104 +11,59 @@ async function getWeatherPara(req, res) {
 
    try {
       const weather = await axios.get(url, { timeout: 20000 });
-
       res.send(weather.data);
-      console.log(weather.data);
    } catch (error) {
-      console.log(error);
       if (error.code == 'ECONNABORTED') {
          return res.status(504).json({
             message:
                'Your request is taking too long to process due to poor newtork. Try again later',
          });
       }
-      // } else if (error.code == 'ERR_BAD_RESPONSE') {
-      //    return res.status(500).json({
-      //       message: 'Oops!...Something went wrong on the server.',
-      //    });
-      // } else if (error.response.data.cod == 404) {
-      //    return res.status(404).json({
-      //       message: 'City Not Found!',
-      //    });
-      // } else {
-      //    return res.status(500).json({
-      //       message: 'Oops!...Something went wrong on the server.',
-      //    });
-      // }
    }
 }
 
 //function to get weather data from a post request
 async function getWeatherData(req, res) {
-   const { location, state, country } = req.body.formData;
+   const { city, country } = req.body.formData;
 
-   console.log(location, state, country);
+   let geoLocation;
 
-   let result;
+   //get country as object from country list
+   const searchCountry = countryList.find((cntry) => cntry.name == country);
 
-   const url = `http://api.openweathermap.org/geo/1.0/direct?q=${location},${state},${country}&limit=1&appid=${apiKey}`;
-
-   const validateLocation = function (apiLocation, apiState, apiCountryCode) {
-      console.log({ apiLocation, apiState, apiCountryCode });
-      let locationResult, stateResult, countryResult;
-
-      locationResult = apiLocation.includes(location);
-      stateResult = apiState.includes(state);
-
-      const searchCountry = countryList.find((cntry) => cntry.name == country);
-
+   //1. get the geo-coordinates of the location/city
+   try {
       if (searchCountry == undefined) {
-         countryResult = false;
-      } else {
-         countryResult = searchCountry.code === apiCountryCode;
+         throw new Error('Location not found!');
       }
 
-      console.log({ locationResult, stateResult, countryResult });
+      const url = `http://api.openweathermap.org/geo/1.0/direct?q=${city},${
+         searchCountry.code
+      }&limit=${5}&appid=${apiKey}`;
 
-      const result = locationResult && stateResult && countryResult;
-
-      return result;
-   };
-
-   //convert location to long/lat coordinates
-   try {
       const response = await axios.get(url, { timeout: 20000 });
+
       if (!response.data) {
          throw new Error('Oops!...Internal server error!');
       }
 
-      console.log(response.data);
-
-      if (!response.data[0]) {
-         throw new Error('Weather data not available!');
+      if (response.data.length == 0) {
+         throw new Error('Weather data not available...try again later!');
       }
 
-      const { name, state, country } = response.data[0];
-      //console.log({ name, state, country });
-
-      if (validateLocation(name, state, country) === false) {
-         throw new Error('Location not found!');
-      }
-
-      result = response.data[0];
-      console.log(result);
-
-      //res.send(result);
+      geoLocation = response.data[0];
    } catch (err) {
       return res.status(500).json({
          message: err.message,
       });
    }
 
-   const { lon, lat } = result;
-
+   //2. Use the geo-cordinates to fetch the weather data
+   const { lat, lon } = geoLocation;
    //fetch weather data with long/lat
    const url2 = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=hourly,minutely&appid=${apiKey}`;
-
    try {
       const response = await axios.get(url2, { timeout: 20000 });
-
-      console.log(response.data);
       res.send(response.data);
    } catch (err) {
       httpErrorHandler(err);
